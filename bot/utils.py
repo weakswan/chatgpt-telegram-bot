@@ -11,7 +11,7 @@ import telegram
 from telegram import Message, MessageEntity, Update, ChatMember, constants, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext, ContextTypes
 
-from usage_tracker import UsageTracker
+from usage import UsageTracker
 from config import chat_modes
 
 
