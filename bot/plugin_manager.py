@@ -15,6 +15,7 @@ from plugins.deepl import DeeplTranslatePlugin
 from plugins.worldtimeapi import WorldTimeApiPlugin
 from plugins.whois_ import WhoisPlugin
 from plugins.webshot import WebshotPlugin
+from plugins.dalle_3 import DallE3
 
 
 class PluginManager:
@@ -40,6 +41,7 @@ class PluginManager:
             'auto_tts': AutoTextToSpeech,
             'whois': WhoisPlugin,
             'webshot': WebshotPlugin,
+            'dalle': DallE3,
         }
         self.plugins = [plugin_mapping[plugin]() for plugin in enabled_plugins if plugin in plugin_mapping]
 

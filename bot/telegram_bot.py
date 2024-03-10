@@ -20,7 +20,7 @@ from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicato
     get_reply_to_message_id, add_chat_request_to_usage_tracker, error_handler, is_direct_result, handle_direct_result, \
     cleanup_intermediate_files, get_paginated_keyboard
 from openai_helper import OpenAIHelper, localized_text
-from usage_tracker import UsageTracker
+from usage import UsageTracker
 from config import chat_modes
 
 

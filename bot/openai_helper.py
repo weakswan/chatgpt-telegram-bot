@@ -265,8 +265,6 @@ class OpenAIHelper:
             raise Exception(f"⚠️ _{localized_text('error', bot_language)}._ ⚠️\n{str(e)}") from e
 
     async def __handle_function_call(self, chat_id, response, stream=False, times=0, plugins_used=()):
-        global FUNCTION_CALL_COUNTER
-        FUNCTION_CALL_COUNTER += 1
         logging.info(f"__handle_function_call worked {FUNCTION_CALL_COUNTER} times")
         function_name = ''
         arguments = ''
@@ -336,6 +334,7 @@ class OpenAIHelper:
                 prompt=prompt,
                 n=1,
                 model=self.config['image_model'],
+                # TODO let the user choose the quality
                 quality=self.config['image_quality'],
                 style=self.config['image_style'],
                 size=self.config['image_size']
