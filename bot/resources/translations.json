@@ -6,6 +6,7 @@
         "tts_description":"Generate speech from text (e.g. /tts my house)",
         "stats_description":"Get your current usage statistics",
         "resend_description":"Resend the latest message",
+        "brains_description": "Choose the right brain to use",
         "chat_description":"Chat with the bot!",
         "disallowed":"Sorry, you are not allowed to use this bot. You can check out the source code at https://github.com/n3d1117/chatgpt-telegram-bot",
         "budget_limit":"Sorry, you have reached your usage limit.",

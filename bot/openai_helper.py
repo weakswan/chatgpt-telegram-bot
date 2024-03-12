@@ -164,12 +164,16 @@ class OpenAIHelper:
         :return: The answer from the model and the number of tokens used, or 'not_finished'
         """
         plugins_used = ()
+        is_image: bool = False
         response = await self.__common_get_chat_response(chat_id, query, stream=True)
         if self.config['enable_functions'] and not self.conversations_vision[chat_id]:
             logging.info(f"i am working and streaming")
             response, plugins_used = await self.__handle_function_call(chat_id, response, stream=True)
+            if len(plugins_used) > 0:
+                if plugins_used[0] == "generate_image":
+                    is_image: bool = True
             if is_direct_result(response):
-                yield response, '0'
+                yield response, '0', is_image
                 return
 
         answer = ''
@@ -179,12 +183,12 @@ class OpenAIHelper:
             delta = chunk.choices[0].delta
             if delta.content:
                 answer += delta.content
-                yield answer, 'not_finished'
+                yield answer, 'not_finished', is_image
         answer = answer.strip()
         logging.info(f"this is the answer {answer}")
         self.__add_to_history(chat_id, role="assistant", content=answer)
         tokens_used = str(self.__count_tokens(self.conversations[chat_id]))
-
+        logging.info(f"the used tokens are {tokens_used}, {type(tokens_used)} and this is the plugin {plugins_used[0]}")
         show_plugins_used = len(plugins_used) > 0 and self.config['show_plugins_used']
         plugin_names = tuple(self.plugin_manager.get_plugin_source_name(plugin) for plugin in plugins_used)
         if self.config['show_usage']:
@@ -194,7 +198,7 @@ class OpenAIHelper:
         elif show_plugins_used:
             answer += f"\n\n---\n🔌 {', '.join(plugin_names)}"
 
-        yield answer, tokens_used
+        yield answer, tokens_used, is_image
 
     @retry(
         reraise=True,
@@ -265,7 +269,6 @@ class OpenAIHelper:
             raise Exception(f"⚠️ _{localized_text('error', bot_language)}._ ⚠️\n{str(e)}") from e
 
     async def __handle_function_call(self, chat_id, response, stream=False, times=0, plugins_used=()):
-        logging.info(f"__handle_function_call worked {FUNCTION_CALL_COUNTER} times")
         function_name = ''
         arguments = ''
         if stream:

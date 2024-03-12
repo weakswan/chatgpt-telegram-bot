@@ -42,7 +42,8 @@ class ChatGPTTelegramBot:
             BotCommand(command='help', description=localized_text('help_description', bot_language)),
             BotCommand(command='reset', description=localized_text('reset_description', bot_language)),
             BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
-            BotCommand(command='resend', description=localized_text('resend_description', bot_language))
+            BotCommand(command='resend', description=localized_text('resend_description', bot_language)),
+            BotCommand(command='brains', description=localized_text('brains_description', bot_language))
         ]
         # If imaging is enabled, add the "image" command to the list
         if self.config.get('enable_image_generation', False):
@@ -349,7 +350,7 @@ class ChatGPTTelegramBot:
 
     async def tts(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
-        Generates an speech for the given input using TTS APIs
+        Generates a speech for the given input using TTS APIs
         """
         if not self.config['enable_tts_generation'] \
                 or not await self.check_allowed_and_within_budget(update, context):
@@ -709,6 +710,7 @@ class ChatGPTTelegramBot:
         """
         React to incoming messages and respond accordingly.
         """
+        is_image: bool = False
         if update.edited_message or not update.message or update.message.via_bot:
             return
 
@@ -741,14 +743,12 @@ class ChatGPTTelegramBot:
                     return
 
         try:
-            total_tokens = 0
-
+            total_tokens: float = 0
             if self.config['stream']:
                 await update.effective_message.reply_chat_action(
                     action=constants.ChatAction.TYPING,
                     message_thread_id=get_thread_id(update)
                 )
-
                 stream_response = self.openai.get_chat_response_stream(chat_id=chat_id, query=prompt)
                 i = 0
                 prev = ''
@@ -756,10 +756,11 @@ class ChatGPTTelegramBot:
                 backoff = 0
                 stream_chunk = 0
 
-                async for content, tokens in stream_response:
+                async for content, tokens, image_used in stream_response:
+                    if image_used:
+                        is_image: bool = True
                     if is_direct_result(content):
                         return await handle_direct_result(self.config, update, content)
-
                     if len(content.strip()) == 0:
                         continue
 
@@ -824,7 +825,7 @@ class ChatGPTTelegramBot:
 
                     i += 1
                     if tokens != 'not_finished':
-                        total_tokens = int(tokens)
+                        total_tokens = float(tokens)
 
             else:
                 async def _reply():
@@ -858,6 +859,12 @@ class ChatGPTTelegramBot:
                                 raise exception
 
                 await wrap_with_indicator(update, context, _reply, constants.ChatAction.TYPING)
+            if is_image:
+                # add image request to users usage tracker
+                self.usage[user_id].add_image_request(self.config['image_size'], self.config['image_prices'])
+                # add guest chat request to guest usage tracker
+                if str(user_id) not in self.config['allowed_user_ids'].split(',') and 'guests' in self.usage:
+                    self.usage["guests"].add_image_request(self.config['image_size'], self.config['image_prices'])
 
             add_chat_request_to_usage_tracker(self.usage, self.config, user_id, total_tokens)
 
