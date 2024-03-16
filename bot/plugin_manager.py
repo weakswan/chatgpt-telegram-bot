@@ -1,4 +1,6 @@
 import json
+import logging
+from typing import Any, Dict, List, Optional
 
 from plugins.gtts_text_to_speech import GTTSTextToSpeech
 from plugins.auto_tts import AutoTextToSpeech
@@ -20,55 +22,84 @@ from plugins.dalle_3 import DallE3
 
 class PluginManager:
     """
-    A class to manage the plugins and call the correct functions
+    A class to manage the plugins and call the correct functions,
+    enhanced with error handling, logging, and type annotations.
     """
 
-    def __init__(self, config):
-        enabled_plugins = config.get('plugins', [])
+    def __init__(self, config: Dict[str, Any]):
+        self.plugins = []
+        self.initialize_plugins(config)
+
+    def initialize_plugins(self, config: Dict[str, Any]):
+        enabled_plugins = config.get("plugins", [])
         plugin_mapping = {
-            'wolfram': WolframAlphaPlugin,
-            'weather': WeatherPlugin,
-            'crypto': CryptoPlugin,
-            'ddg_web_search': DDGWebSearchPlugin,
-            'ddg_translate': DDGTranslatePlugin,
-            'ddg_image_search': DDGImageSearchPlugin,
-            'spotify': SpotifyPlugin,
-            'worldtimeapi': WorldTimeApiPlugin,
-            'youtube_audio_extractor': YouTubeAudioExtractorPlugin,
-            'dice': DicePlugin,
-            'deepl_translate': DeeplTranslatePlugin,
-            'gtts_text_to_speech': GTTSTextToSpeech,
-            'auto_tts': AutoTextToSpeech,
-            'whois': WhoisPlugin,
-            'webshot': WebshotPlugin,
-            'dalle': DallE3,
+            "wolfram": WolframAlphaPlugin,
+            "weather": WeatherPlugin,
+            "crypto": CryptoPlugin,
+            "ddg_web_search": DDGWebSearchPlugin,
+            "ddg_translate": DDGTranslatePlugin,
+            "ddg_image_search": DDGImageSearchPlugin,
+            "spotify": SpotifyPlugin,
+            "worldtimeapi": WorldTimeApiPlugin,
+            "youtube_audio_extractor": YouTubeAudioExtractorPlugin,
+            "dice": DicePlugin,
+            "deepl_translate": DeeplTranslatePlugin,
+            "gtts_text_to_speech": GTTSTextToSpeech,
+            "auto_tts": AutoTextToSpeech,
+            "whois": WhoisPlugin,
+            "webshot": WebshotPlugin,
+            "dalle": DallE3,
         }
-        self.plugins = [plugin_mapping[plugin]() for plugin in enabled_plugins if plugin in plugin_mapping]
 
-    def get_functions_specs(self):
-        """
-        Return the list of function specs that can be called by the model
-        """
-        return [spec for specs in map(lambda plugin: plugin.get_spec(), self.plugins) for spec in specs]
+        for plugin_key in enabled_plugins:
+            plugin_cls = plugin_mapping.get(plugin_key)
+            if plugin_cls:
+                try:
+                    # If plugin initialization becomes async, this part needs adjustment.
+                    self.plugins.append(plugin_cls())
+                except Exception as e:
+                    logging.error(f"Error initializing plugin {plugin_key}: {e}")
+            else:
+                logging.warning(f"Plugin '{plugin_key}' not found in plugin_mapping.")
 
-    async def call_function(self, function_name, helper, **kwargs):
+    def get_functions_specs(self) -> List[Dict[str, Any]]:
         """
-        Call a function based on the name and parameters provided
+        Return the list of function specs that can be called by the model.
+        """
+        return [spec for plugin in self.plugins for spec in plugin.get_spec()]
+
+    async def call_function(self, function_name: str, helper: Any, **kwargs) -> str:
+        """
+        Call a function based on the name and parameters provided.
         """
         plugin = self.__get_plugin_by_function_name(function_name)
         if not plugin:
-            return json.dumps({'error': f'Function {function_name} not found'})
-        return json.dumps(await plugin.execute(function_name, helper, **kwargs), default=str)
+            error_message = {"error": f"Function {function_name} not found"}
+            logging.error(error_message["error"])
+            return json.dumps(error_message)
 
-    def get_plugin_source_name(self, function_name) -> str:
+        try:
+            result = await plugin.execute(function_name, helper, **kwargs)
+            return json.dumps(result, default=str)
+        except Exception as e:
+            logging.error(f"Error executing function {function_name}: {e}")
+            return json.dumps({"error": "An error occurred during plugin execution."})
+
+    def get_plugin_source_name(self, function_name: str) -> str:
         """
-        Return the source name of the plugin
+        Return the source name of the plugin.
         """
         plugin = self.__get_plugin_by_function_name(function_name)
         if not plugin:
-            return ''
+            logging.warning(f"Plugin for function '{function_name}' not found.")
+            return ""
         return plugin.get_source_name()
 
-    def __get_plugin_by_function_name(self, function_name):
-        return next((plugin for plugin in self.plugins
-                     if function_name in map(lambda spec: spec.get('name'), plugin.get_spec())), None)
+    def __get_plugin_by_function_name(self, function_name: str) -> Optional[Any]:
+        """
+        Find the plugin that supports the given function name.
+        """
+        for plugin in self.plugins:
+            if function_name in (spec.get("name") for spec in plugin.get_spec()):
+                return plugin
+        return None

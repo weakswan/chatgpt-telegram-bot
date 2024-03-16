@@ -14,6 +14,7 @@ class SupabaseClient:
     exists in the application at any time, reducing resource usage and avoiding
     potential conflicts with multiple connections.
     """
+
     _instance = None
 
     def __new__(cls):
