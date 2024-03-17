@@ -625,6 +625,7 @@ class OpenAIHelper:
         """
         if content == "":
             content = self.config.assistant_prompt
+        logging.info(f"the model has been reset successfully")
         self.conversations[chat_id] = [{"role": "system", "content": content}]
         self.conversations_vision[chat_id] = False
 

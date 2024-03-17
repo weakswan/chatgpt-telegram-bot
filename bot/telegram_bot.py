@@ -321,17 +321,17 @@ class ChatGPTTelegramBot:
             )
             await self.send_disallowed_message(update, context)
             return
-        logging.info(f"update is NoNe: {update}")
+
+        user_id = update.callback_query.from_user.id
+        chat_id = update.effective_chat.id
         query = update.callback_query
         await query.answer()
 
         chat_mode = query.data.split("|")[1]
-        logging.info(f"chat mode is : {chat_mode}")
         core_chat_mode = chat_modes
-        # await update.message.reply_text(
-        #     f"{core_chat_mode[chat_mode]['welcome_message']}",
-        #     parse_mode=ParseMode.HTML,
-        # )
+        self.usage[user_id].update_user_brain(chat_mode)
+        brain_prompt = core_chat_mode[chat_mode]["prompt_start"]
+        self.openai.reset_chat_history(chat_id=chat_id, content=brain_prompt)
         await context.bot.send_message(
             update.callback_query.message.chat.id,
             f"{core_chat_mode[chat_mode]['welcome_message']}",
@@ -390,7 +390,12 @@ class ChatGPTTelegramBot:
         )
 
         chat_id = update.effective_chat.id
-        reset_content = message_text(update.message)
+        user_id = update.message.from_user.id
+        user_settings = self.usage[user_id].get_user_setting()
+        user_brain = user_settings["brain"]
+        brain_prompt = chat_modes[user_brain]["prompt_start"]
+        reset_content = brain_prompt
+
         self.openai.reset_chat_history(chat_id=chat_id, content=reset_content)
         await update.effective_message.reply_text(
             message_thread_id=get_thread_id(update),
