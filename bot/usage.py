@@ -592,15 +592,50 @@ class UsageTracker:
         )
         return all_time_cost
 
-    def add_or_update_user_setting(self, model_name=None, brain=None):
-        """
-        Adds or updates a user's setting. If the user has an existing setting, it updates it.
-        Otherwise, it creates a new setting entry.
+    # def add_or_update_user_setting(self, model_name=None, brain=None):
+    #     """
+    #     Adds or updates a user's setting. If the user has an existing setting, it updates it.
+    #     Otherwise, it creates a new setting entry.
+    #
+    #     :param model_name: Optional model name to set for the user.
+    #     :param brain: Optional brain setting to set for the user.
+    #     """
+    #     # Check if the user already has a setting
+    #     existing_setting = (
+    #         self.supabase.table("user_settings")
+    #         .select("*")
+    #         .eq("user_id", self.user_id)
+    #         .execute()
+    #     )
+    #
+    #     if existing_setting.data:
+    #         # Update existing setting
+    #         update_data = {}
+    #         if model_name is not None:
+    #             update_data["model_name"] = model_name
+    #         if brain is not None:
+    #             update_data["brain"] = brain
+    #         if update_data:
+    #             update_data["last_update"] = datetime.now().isoformat()
+    #             self.supabase.table("user_settings").update(update_data).eq("user_id", self.user_id).execute()
+    #     else:
+    #         # Insert new setting
+    #         new_setting = {
+    #             "user_id": self.user_id,
+    #             "model_name": model_name if model_name else "",
+    #             "brain": brain if brain else "",
+    #             "last_update": datetime.now().isoformat()
+    #         }
+    #         self.supabase.table("user_settings").insert(new_setting).execute()
 
-        :param model_name: Optional model name to set for the user.
-        :param brain: Optional brain setting to set for the user.
+    def update_user_model(self, model_name):
         """
-        # Check if the user already has a setting
+        Updates a user's model name setting. If the user has an existing setting, it updates the model name.
+        Otherwise, it creates a new setting entry with the specified model name.
+
+        :param model_name: Model name to set for the user.
+        """
+        # Fetch existing setting
         existing_setting = (
             self.supabase.table("user_settings")
             .select("*")
@@ -609,21 +644,50 @@ class UsageTracker:
         )
 
         if existing_setting.data:
-            # Update existing setting
-            update_data = {}
-            if model_name is not None:
-                update_data["model_name"] = model_name
-            if brain is not None:
-                update_data["brain"] = brain
-            if update_data:
-                update_data["last_update"] = datetime.now().isoformat()
-                self.supabase.table("user_settings").update(update_data).eq("user_id", self.user_id).execute()
+            # Update existing setting with the new model name
+            update_data = {
+                "model_name": model_name,
+                "last_update": datetime.now().isoformat()
+            }
+            self.supabase.table("user_settings").update(update_data).eq("user_id", self.user_id).execute()
         else:
-            # Insert new setting
+            # Insert new setting with model name
             new_setting = {
                 "user_id": self.user_id,
-                "model_name": model_name if model_name else "",
-                "brain": brain if brain else "",
+                "model_name": model_name,
+                "brain": "assistant",
+                "last_update": datetime.now().isoformat()
+            }
+            self.supabase.table("user_settings").insert(new_setting).execute()
+
+    def update_user_brain(self, brain):
+        """
+        Updates a user's brain setting. If the user has an existing setting, it updates the brain setting.
+        Otherwise, it creates a new setting entry with the specified brain.
+
+        :param brain: Brain setting to set for the user.
+        """
+        # Fetch existing setting
+        existing_setting = (
+            self.supabase.table("user_settings")
+            .select("*")
+            .eq("user_id", self.user_id)
+            .execute()
+        )
+
+        if existing_setting.data:
+            # Update existing setting with the new brain
+            update_data = {
+                "brain": brain,
+                "last_update": datetime.now().isoformat()
+            }
+            self.supabase.table("user_settings").update(update_data).eq("user_id", self.user_id).execute()
+        else:
+            # Insert new setting with brain
+            new_setting = {
+                "user_id": self.user_id,
+                "model_name": "gpt-3.5-turbo-0125",  # Assuming default or empty initial value
+                "brain": brain,
                 "last_update": datetime.now().isoformat()
             }
             self.supabase.table("user_settings").insert(new_setting).execute()
@@ -632,6 +696,7 @@ class UsageTracker:
         """
         Retrieves the current settings for a user.
         """
+        logging.info("user settings are coming")
         setting = (
             self.supabase.table("user_settings")
             .select("*")
@@ -640,6 +705,7 @@ class UsageTracker:
         )
 
         if setting.data:
+            logging.info(f"user settings {setting.data[0]}")
             return setting.data[0]
         else:
             return None
