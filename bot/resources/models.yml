@@ -1,4 +1,4 @@
-available_text_models: ["gpt-3.5-turbo-0125", "gpt-4-0125-preview", "gpt-4-vision-preview"]
+available_text_models: ["gpt-3.5-turbo-0125", "gpt-4-0125-preview", "gpt-4-turbo-2024-04-09"]
 
 info:
   gpt-3.5-turbo-0125:
@@ -27,7 +27,7 @@ info:
       Fast: 3
       Cheap: 3
 
-  gpt-4-vision-preview:
+  gpt-4-turbo-2024-04-09:
     type: chat_completion
     name: GPT4 Vision
     description: Ability to <b>understand images</b>, in addition to all other GPT-4 Turbo capabilities.
