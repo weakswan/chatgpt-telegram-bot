@@ -32,6 +32,8 @@ def main():
     max_tokens_default = default_max_tokens(model=model)
     openai_config = {
         'api_key': os.environ['OPENAI_API_KEY'],
+        'whisper_key': os.environ['WHISPER_API_KEY'],
+        'whisper_base': os.environ['WHISPER_BASE_URL'],
         'show_usage': os.environ.get('SHOW_USAGE', 'false').lower() == 'true',
         'stream': os.environ.get('STREAM', 'true').lower() == 'true',
         'proxy': os.environ.get('PROXY', None) or os.environ.get('OPENAI_PROXY', None),

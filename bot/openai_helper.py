@@ -20,10 +20,7 @@ from utils import is_direct_result, encode_image, decode_image
 from plugin_manager import PluginManager
 
 # Models can be found here: https://platform.openai.com/docs/models/overview
-GPT_3_MODELS =("gpt-3.5-turbo",)
-GPT_4_VISION_MODELS = ("gpt-4-turbo-2024-04-09",)
-GPT_4_128K_MODELS = ("gpt-4-turbo",)
-GPT_ALL_MODELS = GPT_3_MODELS + GPT_4_VISION_MODELS + GPT_4_128K_MODELS
+
 
 FUNCTION_CALL_COUNTER = 0
 
@@ -34,13 +31,7 @@ def default_max_tokens(model: str) -> int:
     :param model: The model name
     :return: The default number of max tokens
     """
-    base = 1200
-    if model in GPT_3_MODELS:
-        return base
-    elif model in GPT_4_VISION_MODELS:
-        return 4096
-    elif model in GPT_4_128K_MODELS:
-        return 4096
+    base = 4096
 
 
 def are_functions_available(model: str) -> bool:
@@ -48,7 +39,7 @@ def are_functions_available(model: str) -> bool:
     Whether the given model supports functions
     """
     # Stable models will be updated to support functions on June 27, 2023
-    if model in ("gpt-3.5-turbo", "gpt-4-turbo", "gpt-4-turbo-2024-04-09"):
+    if model in ("gpt-3.5-turbo", "gpt-4-turbo", "gpt-4o-2024-05-13"):
         return datetime.date.today() > datetime.date(2023, 6, 27)
     return True
 
@@ -92,11 +83,13 @@ class OpenAIHelper:
         """
         http_client = httpx.AsyncClient(proxies=config['proxy']) if 'proxy' in config else None
         self.client = openai.AsyncOpenAI(api_key=config['api_key'], http_client=http_client)
+        self.whisperclient = openai.AsyncOpenAI(base_url=config['whisper_base'], api_key=config['whisper_key'])
         self.config = config
         self.plugin_manager = plugin_manager
         self.conversations: dict[int: list] = {}  # {chat_id: history}
         self.conversations_vision: dict[int: bool] = {}  # {chat_id: is_vision}
         self.last_updated: dict[int: datetime] = {}  # {chat_id: last_update_timestamp}
+        GPT_ALL_MODELS = (config['model'],)
 
     def get_conversation_stats(self, chat_id: int) -> tuple[int, int]:
         """
@@ -216,7 +209,7 @@ class OpenAIHelper:
 
             # Summarize the chat history if it's too long to avoid excessive token usage
             token_count = self.__count_tokens(self.conversations[chat_id])
-            exceeded_max_tokens = token_count + self.config['max_tokens'] > self.__max_model_tokens()
+            exceeded_max_tokens = token_count + self.config['max_tokens'] > 120000
             exceeded_max_history_size = len(self.conversations[chat_id]) > self.config['max_history_size']
 
             if exceeded_max_tokens or exceeded_max_history_size:
@@ -376,7 +369,7 @@ class OpenAIHelper:
         try:
             with open(filename, "rb") as audio:
                 prompt_text = self.config['whisper_prompt']
-                result = await self.client.audio.transcriptions.create(model="whisper-1", file=audio,
+                result = await self.whisperclient.audio.transcriptions.create(model="whisper-1", file=audio,
                                                                        prompt=prompt_text)
                 return result.text
         except Exception as e:
@@ -610,17 +603,6 @@ class OpenAIHelper:
         )
         return response.choices[0].message.content
 
-    def __max_model_tokens(self):
-        base = 4096
-        if self.config['model'] in GPT_3_MODELS:
-            return base
-        if self.config['model'] in GPT_4_VISION_MODELS:
-            return base * 31
-        if self.config['model'] in GPT_4_128K_MODELS:
-            return base * 31
-        raise NotImplementedError(
-            f"Max tokens for model {self.config['model']} is not implemented yet."
-        )
 
     # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
     def __count_tokens(self, messages) -> int:
@@ -629,20 +611,15 @@ class OpenAIHelper:
         :param messages: the messages to send
         :return: the number of tokens required
         """
-        model = self.config['model']
+        model = "gpt-3.5-turbo"
         try:
             encoding = tiktoken.encoding_for_model(model)
         except KeyError:
             encoding = tiktoken.get_encoding("gpt-3.5-turbo")
 
-        if model in GPT_3_MODELS:
-            tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
-            tokens_per_name = -1  # if there's a name, the role is omitted
-        elif model in GPT_4_VISION_MODELS + GPT_4_128K_MODELS:
-            tokens_per_message = 3
-            tokens_per_name = 1
-        else:
-            raise NotImplementedError(f"""num_tokens_from_messages() is not implemented for model {model}.""")
+
+        tokens_per_message = 3
+        tokens_per_name = 1
         num_tokens = 0
         for message in messages:
             num_tokens += tokens_per_message
@@ -675,8 +652,6 @@ class OpenAIHelper:
         image_file = io.BytesIO(image_bytes)
         image = Image.open(image_file)
         model = self.config['vision_model']
-        if model not in GPT_4_VISION_MODELS:
-            raise NotImplementedError(f"""count_tokens_vision() is not implemented for model {model}.""")
 
         w, h = image.size
         if w > h: w, h = h, w
